@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+
+<robot name="quadruped_9g" xmlns:xacro="http://ros.org/wiki/xacro">
+    <xacro:property name="shoul_len" value="0.035" />
+    <xacro:property name="thigh_len" value="0.045" />
+    <xacro:property name="shank_len" value="0.05" />
+    <xacro:property name="link_radius" value="0.0025"/>
+    <xacro:property name="pi" value="3.1415" />
+    <xacro:property name="body_len" value="0.1" />
+    <xacro:property name="body_width" value="0.05" />
+    <xacro:property name="body_height" value="0.02" />
+
+    <material name="red">
+        <color rgba="1 0 0 1"/>
+    </material>
+
+    <material name="white">
+        <color rgba="1 1 1 1"/>
+    </material>
+
+    <xacro:macro name="default_inertial" params="mass">
+        <inertial>
+            <mass value="${mass}" />
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0" />
+        </inertial>
+    </xacro:macro>
+
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <box size="${body_len} ${body_width} ${body_height}" />
+            </geometry>
+            <material name="white"/>
+        </visual>
+        <xacro:default_inertial mass="10" />
+    </link>
+
+    <xacro:macro name="leg" params="suffix front left">
+        <link name="shoulder_link_${suffix}">
+            <visual>
+                <geometry>
+                    <cylinder length="${shoul_len}" radius="${link_radius}"/>
+                </geometry>
+                <origin rpy="${pi*0.5} 0 0" xyz="0 ${0.5*left*shoul_len} 0"/>
+                <material name="red"/>
+            </visual>
+            <xacro:default_inertial mass="2"/>
+        </link>
+        <joint name="shoulder_joint_${suffix}" type="revolute">
+            <axis xyz="1 0 0"/>
+            <limit effort="1000.0" lower="${-0.5*pi}" upper="${0.5*pi}" velocity="0.5"/>
+            <parent link="base_link"/>
+            <child link="shoulder_link_${suffix}"/>
+            <origin xyz="${0.5*body_len*front} ${left*0.005} 0"/>
+        </joint>
+
+  
+        <link name="thigh_link_${suffix}">
+            <visual>
+                <geometry>
+                    <cylinder length="${thigh_len}" radius="${link_radius}"/>
+                </geometry>
+                <origin rpy="0 0 0" xyz="0 0 ${-0.5*thigh_len}"/>
+                <material name="white"/>
+            </visual>
+            <xacro:default_inertial mass="2"/>
+        </link>
+        <joint name="elbow_joint_${suffix}" type="revolute">
+            <axis xyz="0 1 0"/>
+            <limit effort="1000.0" lower="${-0.5*pi}" upper="${0.5*pi}" velocity="0.5"/>
+            <parent link="shoulder_link_${suffix}"/>
+            <child link="thigh_link_${suffix}"/>
+            <origin xyz="0 ${left*shoul_len} 0"/>
+        </joint>
+ 
+        <link name="shank_link_${suffix}">
+            <visual>
+                <geometry>
+                    <cylinder length="${shank_len}" radius="${link_radius}"/>
+                </geometry>
+                <origin rpy="0 0 0" xyz="0 0 ${-0.5*shank_len}"/>
+                <material name="red"/>
+            </visual>
+            <xacro:default_inertial mass="2"/>
+        </link>
+        <joint name="wrist_joint_${suffix}" type="revolute">
+            <axis xyz="0 1 0"/>
+            <limit effort="1000.0" lower="${-0.5*pi}" upper="${0.5*pi}" velocity="0.5"/>
+            <parent link="thigh_link_${suffix}"/>
+            <child link="shank_link_${suffix}"/>
+            <origin xyz="0 0 ${-thigh_len}"/>
+        </joint>
+    </xacro:macro>
+    <xacro:leg suffix="lf" front="1" left="1" />
+    <xacro:leg suffix="rf" front="1" left="-1" />
+    <xacro:leg suffix="lb" front="-1" left="1" />
+    <xacro:leg suffix="rb" front="-1" left="-1" />
+
+</robot>
