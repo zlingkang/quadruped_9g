@@ -10,13 +10,15 @@
 #include "trac_ik/trac_ik.hpp"
 #include "urdf/model.h"
 
+const double PI = 3.14159;
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "ik_test_node");
     ros::NodeHandle n;
     ros::Publisher joint_pub = n.advertise<sensor_msgs::JointState>("joint_states", 1);
     tf::TransformBroadcaster broadcaster;
-    ros::Rate loop_rate(1);
+    ros::Rate loop_rate(5);
 
     std::string robot_desc_string;
     n.param("robot_description", robot_desc_string, std::string());
@@ -27,11 +29,14 @@ int main(int argc, char** argv)
         ROS_ERROR("Failed to construct kdl tree");
     }
 
-    std::vector<std::string> joint_name = {"shoulder_joint_lf", "elbow_joint_lf", "wrist_joint_lf",
-                                           "shoulder_joint_rf", "elbow_joint_rf", "wrist_joint_rf", 
-                                           "shoulder_joint_lb", "elbow_joint_lb", "wrist_joint_lb",
-                                           "shoulder_joint_rb", "elbow_joint_rb", "wrist_joint_rb" };
-    std::vector<double> joint_pos = {0 ,0 ,0 ,0 ,0 ,0 ,0 ,0 ,0, 0, 0, 0};
+    std::vector<std::string> joint_name = {"shoulder_joint_lf", "elbow_joint_lf", "wrist_joint_lf", "ankle_joint_lf",
+                                           "shoulder_joint_rf", "elbow_joint_rf", "wrist_joint_rf", "ankle_joint_rf", 
+                                           "shoulder_joint_lb", "elbow_joint_lb", "wrist_joint_lb", "ankle_joint_lb",
+                                           "shoulder_joint_rb", "elbow_joint_rb", "wrist_joint_rb", "ankle_joint_rb" };
+    std::vector<double> joint_pos = {0, PI/6.0, -PI/3.0, -PI/3.0,
+                                     0, PI/6.0, -PI/3.0, -PI/3.0,
+                                     0, PI/6.0, -PI/3.0, -PI/3.0,
+                                     0, PI/6.0, -PI/3.0, -PI/3.0};
     // for joints pos pub
     sensor_msgs::JointState joint_state;
     // for odom pub
@@ -73,27 +78,40 @@ int main(int argc, char** argv)
 
     bool flag = true;
     double x_trans = 0;
+    
+    auto print_frame_lambda = [](KDL::Frame f)
+    {
+        double x, y, z, roll, pitch, yaw;
+        x = f.p.x();
+        y = f.p.y();
+        z = f.p.z();
+        f.M.GetRPY(roll, pitch, yaw);
+        std::cout << "x:" << x << " y:" << y << " z:" << z << " roll:" << roll << " pitch:" << pitch << " yaw:" << yaw << std::endl;
+    };
+
     while(ros::ok())
     {
         // ik computation
         if(flag)
         {
-            fk_solver.JntToCart(q, end_effector_pose); 
+            fk_solver.JntToCart(q, end_effector_pose);
             int rc = tracik_solver.CartToJnt(nominal, end_effector_pose, result);
+            print_frame_lambda(end_effector_pose);
         }
         else
         {
             fk_solver.JntToCart(nominal, end_effector_pose); 
             int rc = tracik_solver.CartToJnt(q, end_effector_pose, result);
+            print_frame_lambda(end_effector_pose);
         }
         flag = !flag;
 
         // update joint_state
         ROS_INFO("update joint state");
         joint_state.header.stamp = ros::Time::now();
-        joint_state.name.resize(12);
-        joint_state.position.resize(12);
-        for(size_t i = 0; i < 12; i ++)
+        joint_state.name.resize(16);
+        joint_state.position.resize(16);
+        for(size_t i = 0; i < 16; i ++)
         {
             joint_state.name[i] = joint_name[i];
             joint_state.position[i] = joint_pos[i];
@@ -106,7 +124,7 @@ int main(int argc, char** argv)
         odom_trans.header.stamp = ros::Time::now();
         odom_trans.transform.translation.x = x_trans;
         odom_trans.transform.translation.y = 0;
-        odom_trans.transform.translation.z = 0.095;
+        odom_trans.transform.translation.z = 0.0866;
         odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(0.0);
 
         ROS_INFO("pub joint state");
@@ -114,7 +132,7 @@ int main(int argc, char** argv)
         ROS_INFO("pub odom trans");
         broadcaster.sendTransform(odom_trans);
 
-        //x_trans += 0.001;
+        x_trans += 0.001;
 
         loop_rate.sleep();
     }
