@@ -58,6 +58,8 @@
   <build_depend>rospy</build_depend>
   <build_depend>rviz</build_depend>
   <build_depend>xacro</build_depend>
+  <build_depend>kdl_parser</build_depend>
+  <build_depend>urdf</build_depend>
   <build_export_depend>controller_manager</build_export_depend>
   <build_export_depend>gazebo_ros</build_export_depend>
   <build_export_depend>gazebo_ros_control</build_export_depend>
@@ -76,7 +78,13 @@
   <exec_depend>rospy</exec_depend>
   <exec_depend>rviz</exec_depend>
   <exec_depend>xacro</exec_depend>
-
+  <exec_depend>kdl_parser</exec_depend>
+  <exec_depend>urdf</exec_depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>orocos_kdl</depend>
+  <depend>trac_ik_lib</depend>
+  <depend>boost</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

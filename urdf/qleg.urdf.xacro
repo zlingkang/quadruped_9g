@@ -2,9 +2,10 @@
 
 <robot name="quadruped_9g" xmlns:xacro="http://ros.org/wiki/xacro">
     <xacro:property name="shoul_len" value="0.035" />
-    <xacro:property name="thigh_len" value="0.045" />
+    <xacro:property name="thigh_len" value="0.05" />
     <xacro:property name="shank_len" value="0.05" />
     <xacro:property name="link_radius" value="0.0025"/>
+    <xacro:property name="feet_radius" value="0.0025"/>
     <xacro:property name="pi" value="3.1415" />
     <xacro:property name="body_len" value="0.1" />
     <xacro:property name="body_width" value="0.05" />
@@ -90,6 +91,24 @@
             <child link="shank_link_${suffix}"/>
             <origin xyz="0 0 ${-thigh_len}"/>
         </joint>
+        
+        <link name="feet_link_${suffix}">
+            <visual>
+                <geometry>
+                    <sphere radius="${feet_radius}"/>
+                </geometry>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <material name="white"/>
+            </visual>
+            <xacro:default_inertial mass="0.2"/>
+        </link>
+        <joint name="ankle_joint_${suffix}" type="fixed">
+            <axis xyz="0 1 0"/>
+            <parent link="shank_link_${suffix}"/>
+            <child link="feet_link_${suffix}"/>
+            <origin xyz="0 0 ${-shank_len}"/>
+        </joint>
+
     </xacro:macro>
     <xacro:leg suffix="lf" front="1" left="1" />
     <xacro:leg suffix="rf" front="1" left="-1" />

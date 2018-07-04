@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(quadruped_9g)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -17,7 +17,14 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   rviz
   xacro
+  kdl_parser
+  tf
+  sensor_msgs
+  std_msgs
+  trac_ik_lib
 )
+find_package(Boost REQUIRED COMPONENTS date_time)
+find_package(orocos_kdl REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -111,8 +118,8 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES quadruped_9g
-#  CATKIN_DEPENDS controller_manager gazebo_ros gazebo_ros_control joint_state_publisher robot_state_publisher roscpp rospy rviz xacro
-#  DEPENDS system_lib
+   CATKIN_DEPENDS controller_manager gazebo_ros gazebo_ros_control joint_state_publisher robot_state_publisher roscpp rospy rviz xacro trac_ik_lib
+   DEPENDS Boost orocos_kdl
 )
 
 ###########
@@ -122,8 +129,9 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
+  ${orocos_kdl_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -140,6 +148,8 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/quadruped_9g_node.cpp)
+add_executable(ik_test_node src/ik_test_node.cpp)
+target_link_libraries(ik_test_node ${catkin_LIBRARIES} ${orocos_kdl_LIBRARIES})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
