@@ -110,6 +110,24 @@
             <origin xyz="0 0 ${-shank_len}"/>
         </joint>
 
+        <link name="shoe_link_${suffix}">
+            <visual>
+                <geometry>
+                    <sphere radius="${feet_radius}"/>
+                </geometry>
+                <origin rpy="0 0 0" xyz="0 0 0"/>
+                <material name="white"/>
+            </visual>
+            <xacro:default_inertial mass="0.2"/>
+        </link>
+        <joint name="shoe_joint_${suffix}" type="revolute">
+            <axis xyz="1 0 0"/>
+            <limit effort="1000.0" lower="${-0.5*pi}" upper="${0.5*pi}" velocity="0.5"/>
+            <parent link="feet_link_${suffix}"/>
+            <child link="shoe_link_${suffix}"/>
+            <origin xyz="0 0 0"/>
+        </joint>
+
     </xacro:macro>
     <xacro:leg suffix="lf" front="1" left="1" />
     <xacro:leg suffix="rf" front="1" left="-1" />

@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="model" default="$(find quadruped_9g)/urdf/qleg.urdf.xacro"/>
+  <arg name="model" default="$(find quadruped_9g)/urdf/qleg2.urdf.xacro"/>
   <arg name="gui" default="true" />
   <arg name="rvizconfig" default="$(find quadruped_9g)/rviz/urdf.rviz" />
 
