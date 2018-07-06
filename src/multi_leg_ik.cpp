@@ -15,20 +15,25 @@ const double SHOU_L = 0.04;
 const double CLEG_L = 0.086;
 const double HBDY_L = 0.05;
 const int JNTS_NUM = 20;
+enum leg_type {LF, RF, LB, RB};
 
 class LegIK{
     public:
-        LegIK(const std::string _name, bool _up2down);
+        LegIK(const std::string _name);
         LegIK(const std::string _name, bool _up2down, std::string _urdf_param, double _timeout, double _eps);
         void init();
+        void setUp2Down(const bool _up2down); // set leg chain direction
         void setEndPose(const std::vector<double>& _pose); // x, y, z, R, P, Y
         bool getJntArray(std::vector<double>& _jnts);
     private:
         std::string name_;
-        bool up2down_; // the chain direction: from shoulder to feet, or inverse
+        leg_type legt_;
+        bool up2down_; // the chain direction: from base to shoe, or inverse
         std::string urdf_param_;
         double timeout_;
         double eps_;
+
+        // base to shoe 
         TRAC_IK::TRAC_IK* tracik_solver_ptr_;
         KDL::ChainFkSolverPos_recursive* fk_solver_ptr_;
         KDL::Chain chain_;
@@ -36,24 +41,44 @@ class LegIK{
         KDL::JntArray ll_, ul_; // joint angle lower bound and upper bound
         std::string chain_start_;
         std::string chain_end_;
+        std::vector<double> start2end_; // start to end transformation x y z R P Y, for setEndPose preprocess 
+        
+        // shoe to base 
+        TRAC_IK::TRAC_IK* inv_tracik_solver_ptr_;
+        KDL::ChainFkSolverPos_recursive* inv_fk_solver_ptr_;
+        KDL::Chain inv_chain_;
+        KDL::JntArray inv_jnt_array_; // current joint angle array
+        KDL::JntArray inv_ll_, inv_ul_; // joint angle lower bound and upper bound
+        std::string inv_chain_start_;
+        std::string inv_chain_end_;
+        std::vector<double> inv_start2end_; // start to end transformation x y z R P Y, for setEndPose preprocess 
 
         KDL::Frame target_frame_;
 };
 
 void LegIK::init()
 {
-    if(up2down_)
+    if(name_ == "lf")
     {
-        chain_start_ = "base_link";
-        chain_end_ = "shoe_link_" + name_;
+        legt_ = LF; 
     }
-    else
+    else if(name_ == "rf")
     {
-        chain_start_ = "shoe_link_" + name_;
-        chain_end_ = "base_link";
+        legt_ = RF;
     }
-    tracik_solver_ptr_ = new TRAC_IK::TRAC_IK(chain_start_, chain_end_, urdf_param_, timeout_, eps_);
+    else if(name_ == "lb")
+    {
+        legt_ = LB;
+    }
+    else if(name_ == "rb")
+    {
+        legt_ = RB;
+    }
 
+    // base to shoe
+    chain_start_ = "base_link";
+    chain_end_ = "shoe_link_" + name_;
+    tracik_solver_ptr_ = new TRAC_IK::TRAC_IK(chain_start_, chain_end_, urdf_param_, timeout_, eps_);
     bool valid = tracik_solver_ptr_->getKDLChain(chain_);
     if(!valid)
     {
@@ -65,30 +90,63 @@ void LegIK::init()
         ROS_ERROR("There was no valid KDL joint limits found");
     }
     fk_solver_ptr_ = new KDL::ChainFkSolverPos_recursive(chain_);
-
     jnt_array_ = KDL::JntArray(chain_.getNrOfJoints());
-    if(up2down_)
+    std::vector<std::vector<double>> base2shoe {{HBDY_L, SHOU_L, -CLEG_L, 0, 0, 0},
+                                                {HBDY_L, -SHOU_L, -CLEG_L, 0, 0, 0},
+                                                {-HBDY_L, SHOU_L, -CLEG_L, 0, 0, 0},
+                                                {-HBDY_L, -SHOU_L, -CLEG_L, 0, 0, 0}};
+    jnt_array_(0) = 0; // shoulder joint
+    jnt_array_(1) = PI/6.0;
+    jnt_array_(2) = -PI/3.0;
+    jnt_array_(3) = -PI/3.0;
+    jnt_array_(4) = 0; // shoe joint
+    switch(legt_)
     {
-        jnt_array_(0) = 0; // shoulder joint
-        jnt_array_(1) = PI/6.0;
-        jnt_array_(2) = -PI/3.0;
-        jnt_array_(3) = -PI/3.0;
-        jnt_array_(4) = 0; // shoe joint
+        case LF: start2end_ = base2shoe[0]; break;
+        case RF: start2end_ = base2shoe[1]; break;
+        case LB: start2end_ = base2shoe[2]; break;
+        case RB: start2end_ = base2shoe[3]; break;
     }
-    else
+   
+    
+    // shoe to base
+    inv_chain_start_ = "shoe_link_" + name_;
+    inv_chain_end_ = "base_link"; 
+    inv_tracik_solver_ptr_ = new TRAC_IK::TRAC_IK(inv_chain_start_, inv_chain_end_, urdf_param_, timeout_, eps_);
+    valid = inv_tracik_solver_ptr_->getKDLChain(inv_chain_);
+    if(!valid)
     {
-        jnt_array_(0) = 0;
-        jnt_array_(1) = -PI/3.0;
-        jnt_array_(2) = -PI/3.0;
-        jnt_array_(3) = PI/6.0;
-        jnt_array_(4) = 0;
+        ROS_ERROR("There was no valid KDL chain found");
+    }
+    valid = inv_tracik_solver_ptr_->getKDLLimits(inv_ll_, inv_ul_);
+    if(!valid)
+    {
+        ROS_ERROR("There was no valid KDL joint limits found");
+    }
+    inv_fk_solver_ptr_ = new KDL::ChainFkSolverPos_recursive(chain_);
+    inv_jnt_array_ = KDL::JntArray(chain_.getNrOfJoints());
+    std::vector<std::vector<double>> shoe2base {{-HBDY_L, -SHOU_L, CLEG_L, 0, 0, 0},
+                                                {-HBDY_L, SHOU_L, CLEG_L, 0, 0, 0},
+                                                {HBDY_L, -SHOU_L, CLEG_L, 0, 0, 0},
+                                                {HBDY_L, SHOU_L, CLEG_L, 0, 0, 0}};
+    inv_jnt_array_(0) = 0;
+    inv_jnt_array_(1) = -PI/3.0;
+    inv_jnt_array_(2) = -PI/3.0;
+    inv_jnt_array_(3) = PI/6.0;
+    inv_jnt_array_(4) = 0;
+    switch(legt_)
+    {
+        case LF: inv_start2end_ = shoe2base[0]; break;
+        case RF: inv_start2end_ = shoe2base[1]; break;
+        case LB: inv_start2end_ = shoe2base[2]; break;
+        case RB: inv_start2end_ = shoe2base[3]; break;
     }
 
 }
 
-LegIK::LegIK(const std::string _name, bool _up2down):
+LegIK::LegIK(const std::string _name):
     name_(_name),
-    up2down_(_up2down),
+    up2down_(true),
     urdf_param_("/robot_description"),
     timeout_(0.005),
     eps_(2e-5)
@@ -106,14 +164,28 @@ LegIK::LegIK(const std::string _name, bool _up2down, std::string _urdf_param, do
     init();
 }
 
+void LegIK::setUp2Down(const bool _up2down)
+{
+    up2down_ = _up2down;
+}
+
 void LegIK::setEndPose(const std::vector<double>& _pose) // x, y, z, R, P, Y
 {
-    double x = _pose[0];
-    double y = _pose[1];
-    double z = _pose[2];
-    double R = _pose[3];
-    double P = _pose[4];
-    double Y = _pose[5];
+    std::vector<double> bias;
+    if(up2down_)
+    {
+        bias = start2end_;
+    }
+    else
+    {
+        bias = inv_start2end_;
+    }
+    double x = _pose[0] + bias[0];
+    double y = _pose[1] + bias[1];
+    double z = _pose[2] + bias[2];
+    double R = _pose[3] + bias[3];
+    double P = _pose[4] + bias[4];
+    double Y = _pose[5] + bias[5];
     KDL::Vector v(x, y, z);
     target_frame_ = KDL::Frame(KDL::Rotation::RPY(R, P, Y), v);
 }
@@ -121,7 +193,23 @@ void LegIK::setEndPose(const std::vector<double>& _pose) // x, y, z, R, P, Y
 bool LegIK::getJntArray(std::vector<double>& _jnts)
 {
     KDL::JntArray result; 
-    int rc = tracik_solver_ptr_->CartToJnt(jnt_array_, target_frame_, result);
+    int rc = 0; 
+    if(up2down_)
+    {
+        rc = tracik_solver_ptr_->CartToJnt(jnt_array_, target_frame_, result);
+        for(size_t i = 0, j = chain_.getNrOfJoints()-1; i < chain_.getNrOfJoints(); i ++, j--)
+        {
+            inv_jnt_array_(j) = jnt_array_(i);         
+        }
+    }
+    else
+    {
+        rc = inv_tracik_solver_ptr_->CartToJnt(inv_jnt_array_, target_frame_, result);
+        for(size_t i = 0, j = chain_.getNrOfJoints()-1; i < chain_.getNrOfJoints(); i ++, j--)
+        {
+            jnt_array_(j) = inv_jnt_array_(i); 
+        }
+    }
     if(rc < 0)
     {
         return false;
@@ -129,9 +217,19 @@ bool LegIK::getJntArray(std::vector<double>& _jnts)
     else
     {
         _jnts.clear();
-        for(size_t i = 0; i < chain_.getNrOfJoints(); i ++)
+        if(up2down_)
         {
-            _jnts.push_back(result(i));
+            for(size_t i = 0; i < chain_.getNrOfJoints(); i ++)
+            {
+                _jnts.push_back(result(i));
+            }
+        }
+        else
+        {
+            for(int i = chain_.getNrOfJoints()-1; i > -1; i --)
+            {
+                _jnts.push_back(result(i)); 
+            }
         }
         return true;
     }
@@ -158,10 +256,12 @@ int main(int argc, char** argv)
                                            "shoulder_joint_rf", "elbow_joint_rf", "wrist_joint_rf", "ankle_joint_rf", "shoe_joint_rf",  
                                            "shoulder_joint_lb", "elbow_joint_lb", "wrist_joint_lb", "ankle_joint_lb", "shoe_joint_lb",
                                            "shoulder_joint_rb", "elbow_joint_rb", "wrist_joint_rb", "ankle_joint_rb", "shoe_joint_rb"};
+    /*
     std::vector<double> joint_pos = {0, PI/6.0, -PI/3.0, -PI/3.0, 0,
                                      0, PI/6.0, -PI/3.0, -PI/3.0, 0, 
                                      0, PI/6.0, -PI/3.0, -PI/3.0, 0, 
                                      0, PI/6.0, -PI/3.0, -PI/3.0, 0};
+    */
     // for joints pos pub
     sensor_msgs::JointState joint_state;
     // for odom pub
@@ -170,15 +270,11 @@ int main(int argc, char** argv)
     odom_trans.child_frame_id = "base_link";
 
     // initialize four legs
-    LegIK leg_lf("lf", false);
-    LegIK leg_rf("rf", false);
-    LegIK leg_lb("lb", false);
-    LegIK leg_rb("rb", false);
+    LegIK leg_lf("lf");
+    LegIK leg_rf("rf");
+    LegIK leg_lb("lb");
+    LegIK leg_rb("rb");
     std::vector<LegIK> legs{leg_lf, leg_rf, leg_lb, leg_rb};
-    std::vector<std::vector<double>> shoe2base {{-HBDY_L, -SHOU_L, CLEG_L, 0, 0, 0},
-                                                {-HBDY_L, SHOU_L, CLEG_L, 0, 0, 0},
-                                                {HBDY_L, -SHOU_L, CLEG_L, 0, 0, 0},
-                                                {HBDY_L, SHOU_L, CLEG_L, 0, 0, 0}};
     std::vector<std::vector<double>> result(4, std::vector<double>(5, 0.0)); 
     
     int flag = -1;
@@ -188,6 +284,13 @@ int main(int argc, char** argv)
     double yaw_rot = 0;
     while(ros::ok())
     {
+        // set leg status: up2down or down2up    
+        legs[0].setUp2Down(false); 
+        legs[1].setUp2Down(false); 
+        legs[2].setUp2Down(false); 
+        legs[3].setUp2Down(false); 
+
+        // set end pose
         if(x_trans > 0.02 || x_trans < -0.02)
         {
             flag = -flag;
@@ -201,12 +304,7 @@ int main(int argc, char** argv)
         // calculate the IK
         for(int i = 0; i < 4; i ++)
         {
-            std::vector<double> new_end_pose;
-            for(size_t j = 0; j < end_pose.size(); j ++)
-            {
-                new_end_pose.push_back(end_pose[j]+shoe2base[i][j]); 
-            }
-            legs[i].setEndPose(new_end_pose);
+            legs[i].setEndPose(end_pose);
             if(!legs[i].getJntArray(result[i]))
             {
                 std::cout <<"not success" << std::endl;
@@ -223,16 +321,10 @@ int main(int argc, char** argv)
         joint_state.header.stamp = ros::Time::now();
         joint_state.name.resize(JNTS_NUM);
         joint_state.position.resize(JNTS_NUM);
-        /*
-        std::vector<double> new_pos = {result[4], result[3], result[2], result[1], result[0],  
-                                       result[4], result[3], result[2], result[1], result[0],
-                                       result[4], result[3], result[2], result[1], result[0],
-                                       result[4], result[3], result[2], result[1], result[0]};
-        */
         std::vector<double> new_pos;
         for(int i = 0; i < 4; i ++)
         {
-            for(int j = 4; j > -1; j --)
+            for(int j = 0; j < 5; j ++)
             {
                 new_pos.push_back(result[i][j]);
             } 
