@@ -151,8 +151,11 @@ include_directories(
 add_executable(ik_test_node src/ik_test_node.cpp)
 target_link_libraries(ik_test_node ${catkin_LIBRARIES} ${orocos_kdl_LIBRARIES})
 
-add_executable(multi_leg_ik_node src/multi_leg_ik.cpp)
+add_executable(multi_leg_ik_node src/multi_leg_ik_test.cpp)
 target_link_libraries(multi_leg_ik_node ${catkin_LIBRARIES} ${orocos_kdl_LIBRARIES})
+
+add_executable(walk_node src/leg_ik.cpp src/walk_node.cpp)
+target_link_libraries(walk_node ${catkin_LIBRARIES} ${orocos_kdl_LIBRARIES})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

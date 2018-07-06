@@ -246,22 +246,11 @@ int main(int argc, char** argv)
     std::string robot_desc_string;
     n.param("robot_description", robot_desc_string, std::string());
 
-    KDL::Tree my_tree;
-    if(!kdl_parser::treeFromString(robot_desc_string, my_tree))
-    {
-        ROS_ERROR("Failed to construct kdl tree");
-    }
-
     std::vector<std::string> joint_name = {"shoulder_joint_lf", "elbow_joint_lf", "wrist_joint_lf", "ankle_joint_lf", "shoe_joint_lf", 
                                            "shoulder_joint_rf", "elbow_joint_rf", "wrist_joint_rf", "ankle_joint_rf", "shoe_joint_rf",  
                                            "shoulder_joint_lb", "elbow_joint_lb", "wrist_joint_lb", "ankle_joint_lb", "shoe_joint_lb",
                                            "shoulder_joint_rb", "elbow_joint_rb", "wrist_joint_rb", "ankle_joint_rb", "shoe_joint_rb"};
-    /*
-    std::vector<double> joint_pos = {0, PI/6.0, -PI/3.0, -PI/3.0, 0,
-                                     0, PI/6.0, -PI/3.0, -PI/3.0, 0, 
-                                     0, PI/6.0, -PI/3.0, -PI/3.0, 0, 
-                                     0, PI/6.0, -PI/3.0, -PI/3.0, 0};
-    */
+    
     // for joints pos pub
     sensor_msgs::JointState joint_state;
     // for odom pub
@@ -275,7 +264,9 @@ int main(int argc, char** argv)
     LegIK leg_lb("lb");
     LegIK leg_rb("rb");
     std::vector<LegIK> legs{leg_lf, leg_rf, leg_lb, leg_rb};
-    std::vector<std::vector<double>> result(4, std::vector<double>(5, 0.0)); 
+    
+    std::vector<std::vector<double>> end_pose(4, std::vector<double>(6, 0.0)); // 4 chain, end pose has 6dof
+    std::vector<std::vector<double>> result(4, std::vector<double>(5, 0.0)); // 4 legs, every leg has 5 joints 
     
     int flag = -1;
     double x_trans = 0;
@@ -296,15 +287,18 @@ int main(int argc, char** argv)
             flag = -flag;
         }
         x_trans += 0.001 * flag;
-        y_trans += 0.0005 * flag;
-        z_trans += 0.0002 * flag;
-        yaw_rot += 0.0001 * flag;
-        std::vector<double> end_pose = {x_trans, y_trans, z_trans, 0, 0, 0}; // x y z r y p 
-        
+        //y_trans += 0.0005 * flag;
+        //z_trans += 0.0002 * flag;
+        //yaw_rot += 0.0001 * flag;
+        for(int i = 0; i < 4; i ++)
+        {
+            std::vector<double> pose{x_trans, y_trans, z_trans, 0, 0, 0}; // x y z r y p 
+            end_pose[i] = pose;
+        }
         // calculate the IK
         for(int i = 0; i < 4; i ++)
         {
-            legs[i].setEndPose(end_pose);
+            legs[i].setEndPose(end_pose[i]);
             if(!legs[i].getJntArray(result[i]))
             {
                 std::cout <<"not success" << std::endl;

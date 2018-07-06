@@ -1,0 +1,15 @@
+<launch>
+
+  <arg name="model" default="$(find quadruped_9g)/urdf/qleg2.urdf.xacro"/>
+  <arg name="gui" default="true" />
+  <arg name="rvizconfig" default="$(find quadruped_9g)/rviz/urdf.rviz" />
+
+  <param name="robot_description" command="$(find xacro)/xacro --inorder $(arg model)" />
+  <param name="use_gui" value="$(arg gui)"/>
+
+  <node name="walk_node" pkg="quadruped_9g" type="walk_node" output="screen"/>
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher" />
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
+
+</launch>
