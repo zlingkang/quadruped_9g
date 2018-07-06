@@ -121,7 +121,7 @@
             <xacro:default_inertial mass="0.2"/>
         </link>
         <joint name="shoe_joint_${suffix}" type="revolute">
-            <axis xyz="1 0 0"/>
+            <axis xyz="0 0 1"/>
             <limit effort="1000.0" lower="${-0.5*pi}" upper="${0.5*pi}" velocity="0.5"/>
             <parent link="feet_link_${suffix}"/>
             <child link="shoe_link_${suffix}"/>

@@ -273,6 +273,7 @@ int main(int argc, char** argv)
     double y_trans = 0;
     double z_trans = 0;
     double yaw_rot = 0;
+    double pitch_rot = 0;
     while(ros::ok())
     {
         // set leg status: up2down or down2up    
@@ -289,10 +290,11 @@ int main(int argc, char** argv)
         x_trans += 0.001 * flag;
         //y_trans += 0.0005 * flag;
         //z_trans += 0.0002 * flag;
-        //yaw_rot += 0.0001 * flag;
+        yaw_rot += 0.007 * flag;
+        pitch_rot += 0.003 * flag;
         for(int i = 0; i < 4; i ++)
         {
-            std::vector<double> pose{x_trans, y_trans, z_trans, 0, 0, 0}; // x y z r y p 
+            std::vector<double> pose{0, y_trans, z_trans, pitch_rot, yaw_rot, 0}; // x y z r p y 
             end_pose[i] = pose;
         }
         // calculate the IK
@@ -331,10 +333,10 @@ int main(int argc, char** argv)
         
         // update odom transform ROS_INFO("update odom trans");
         odom_trans.header.stamp = ros::Time::now();
-        odom_trans.transform.translation.x = x_trans;
+        odom_trans.transform.translation.x = 0;
         odom_trans.transform.translation.y = y_trans;
         odom_trans.transform.translation.z = CLEG_L + z_trans;
-        odom_trans.transform.rotation = tf::createQuaternionMsgFromYaw(yaw_rot);
+        odom_trans.transform.rotation = tf::createQuaternionMsgFromRollPitchYaw(pitch_rot,yaw_rot,0);
 
         ROS_INFO("pub joint state");
         joint_pub.publish(joint_state);
