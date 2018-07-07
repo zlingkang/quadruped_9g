@@ -17,7 +17,7 @@ int main(int argc, char** argv)
     ros::NodeHandle n;
     ros::Publisher joint_pub = n.advertise<sensor_msgs::JointState>("joint_states", 1);
     tf::TransformBroadcaster broadcaster;
-    ros::Rate loop_rate(30);
+    ros::Rate loop_rate(150);
 
     std::string robot_desc_string;
     n.param("robot_description", robot_desc_string, std::string());
@@ -49,6 +49,7 @@ int main(int argc, char** argv)
     int cycle_cnt = 0; // walk cycle cnt
     double CYCLE_L = 0.015; // (1/4)cyle length
     double STEP_L = 0.001; // move distance in every loop
+    double cycle_trans = 0;
     double x_trans_total = 0;
     // for base_link pose
     double x_trans = 0;
@@ -58,16 +59,27 @@ int main(int argc, char** argv)
     double x_trans_shoe = 0;
     double y_trans_shoe = 0;
     double z_trans_shoe = 0;
+
+    double error = 0.00001;
     while(ros::ok())
     {
-        if(x_trans_total >= CYCLE_L*(cycle_cnt+1))
+        x_trans += STEP_L;
+        cycle_trans += STEP_L;
+        x_trans_total = cycle_trans + cycle_cnt * CYCLE_L;
+        if(!first)
         {
-            cycle_cnt += 1;
+            x_trans_shoe += STEP_L;
         }
-        if(x_trans >= 2*CYCLE_L)
+        if(cycle_trans > CYCLE_L)
+        {
+            cycle_cnt ++;
+            cycle_trans = 0;
+        }
+        if(x_trans > 2*CYCLE_L )
         {
             x_trans = 0.0;
             x_trans_shoe = -2*CYCLE_L;
+            z_trans_shoe = 0.0;
             first = false;
         }
 
@@ -90,12 +102,6 @@ int main(int argc, char** argv)
         }
 
         // set end pose
-        x_trans += STEP_L;
-        x_trans_total += STEP_L;
-        if(!first)
-        {
-            x_trans_shoe += STEP_L;
-        }
         if(cycle_cnt%4 == 0 || cycle_cnt%4 == 2)
         {
             z_trans_shoe += STEP_L;
@@ -104,7 +110,9 @@ int main(int argc, char** argv)
         {
             z_trans_shoe -= STEP_L;
         }
+        ROS_INFO("x_trans_total: %lf", x_trans_total);
         ROS_INFO("x_trans: %lf", x_trans);
+        ROS_INFO("x_trans_shoe: %lf", x_trans_shoe);
         ROS_INFO("z_trans_shoe: %lf", z_trans_shoe);
 
         for(int i = 0; i < 4; i ++)
